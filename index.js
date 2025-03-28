@@ -1,26 +1,36 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
+const playwright = require('playwright'); // Importamos playwright
 
-const client = new Client({
-    authStrategy: new LocalAuth(), // Guarda la sesión
-    puppeteer: {
-        headless: true, // Cambia a false si quieres ver el navegador
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+// Creamos una clase personalizada para usar Playwright en lugar de Puppeteer
+class CustomPlaywrightLauncher {
+    async launch() {
+        const browser = await playwright.chromium.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        });
+        return {
+            puppeteer: browser, // whatsapp-web.js espera un objeto tipo puppeteer
+        };
     }
+}
+
+// Instancia del cliente usando el launcher de Playwright
+const client = new Client({
+    authStrategy: new LocalAuth(),
+    puppeteer: new CustomPlaywrightLauncher(), // Usamos nuestro propio launcher
 });
 
-// Solo mostrar QR si la sesión no está guardada
+// Mostrar QR si no hay sesión guardada
 client.on('qr', qr => {
     console.log('Escanea este QR con WhatsApp:');
     qrcode.generate(qr, { small: true });
 });
 
-// Mensaje cuando el bot se conecta correctamente
 client.on('ready', () => {
     console.log('✅ Bot de WhatsApp conectado y listo.');
 });
 
-// Capturar mensajes en grupos
 client.on('message', async message => {
     if (message.from.includes('@g.us')) {
         console.log(`📩 Mensaje recibido en grupo: ${message.body}`);
@@ -28,4 +38,3 @@ client.on('message', async message => {
 });
 
 client.initialize();
-
