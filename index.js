@@ -1,40 +1,38 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
-const playwright = require('playwright'); // Importamos playwright
+const axios = require('axios');
 
-// Creamos una clase personalizada para usar Playwright en lugar de Puppeteer
-class CustomPlaywrightLauncher {
-    async launch() {
-        const browser = await playwright.chromium.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        });
-        return {
-            puppeteer: browser, // whatsapp-web.js espera un objeto tipo puppeteer
-        };
-    }
-}
-
-// Instancia del cliente usando el launcher de Playwright
 const client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: new CustomPlaywrightLauncher(), // Usamos nuestro propio launcher
+  authStrategy: new LocalAuth(),
+  puppeteer: {
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  }
 });
 
-// Mostrar QR si no hay sesión guardada
 client.on('qr', qr => {
-    console.log('Escanea este QR con WhatsApp:');
-    qrcode.generate(qr, { small: true });
+  console.log('🟩 Escanea este QR con WhatsApp:');
+  qrcode.generate(qr, { small: true });
 });
 
 client.on('ready', () => {
-    console.log('✅ Bot de WhatsApp conectado y listo.');
+  console.log('✅ Bot conectado y listo.');
 });
 
 client.on('message', async message => {
-    if (message.from.includes('@g.us')) {
-        console.log(`📩 Mensaje recibido en grupo: ${message.body}`);
-    }
-});
+  if (message.from.includes('@g.us')) {
+    console.log(`📩 Mensaje recibido en grupo: ${message.body}`);
+    console.log(`📦 Tipo de mensaje recibido: ${message.type}`);
 
-client.initialize();
+    try {
+      await axios.post('https://ipade-whatsapp-database-n8n.ujbhin.easypanel.host/webhook-test/mensaje-whatsapp', {
+        message: message.body,
+        from: message.from,
+        type: message.type
+      });
+      console.log('📤 Enviado a n8n con éxito');
+    } catch (error) {
+      console.error('❌ Error al enviar a n8n:', error.message);
+    }
+  }
+});
